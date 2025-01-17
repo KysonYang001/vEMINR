@@ -1,0 +1,42 @@
+seed: 1
+inp_size: 48
+batch_size: 2
+total_batch_size: 2
+epoch_max: 1500  # number of training epoch.
+epoch_save: 100 # epoch interval for saving checkpoints.
+queue_size: 2048
+
+blur:
+  # Degradation specifications
+  noise: 0.0
+
+train_dataset1: # data set setting.
+  dataset: # the module responsible for loading image.
+    name: image-volume
+    args:
+      root_path: /your/path/to/train/volume.tif # volume data path.
+      repeat: 10 # images in dataset will be loaded 10 times.
+  wrapper: # the module responsible for preprocessing image.
+    name: sr-degrade
+    args:
+      inp_size: 48 # input_size will be 48 * (48 * scale)
+      augment: true # data augment.
+      scale: 8 # reconstruction factor.
+
+optimizer: # optimizer setting
+  name: adam
+  args:
+   lr: 0.03
+   weight_decay: 0 
+
+degrade: # degradation predictor model setting.
+  name: simsiam
+  args:
+    dim: 256
+    pred_dim: 512
+
+
+data_norm: # set data range form [0,1] to [-1, 1].
+  sub: 0.5
+  div: 0.5
+
