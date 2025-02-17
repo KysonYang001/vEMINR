@@ -87,9 +87,8 @@ if __name__ == '__main__':
 
 		pred = pred * gt_div + gt_sub
 		pred = pred.detach().view(-1, h, w).cpu().numpy()  # [batch, h, w]
-		# 遍历batch中的每个图像
+		
 		for i in range(pred.shape[0]):
-			# 转换为0-255范围并转为uint8
 			img_array = np.clip(pred[i] * 255, 0, 255).astype(np.uint8)
 			io.imsave(f'{args.save}/{direct}/{idx}.png', img_array)
 
