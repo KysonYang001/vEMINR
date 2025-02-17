@@ -23,8 +23,14 @@ Experimental results on eight public datasets demonstrate that vEMINR outperform
   ```bash
   conda create -n vEMINR python=3.10
   conda activate vEMINR
+  conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 pytorch-cuda=12.1 -c pytorch -c nvidia
   ```
-- Install dependencies
+- Install Random Fourier Features Pytorch
+  ```bash
+  pip install random-fourier-features-pytorch
+  ```
+
+- Install other dependencies
   ```bash
   pip install -r requirements.txt
   ```
