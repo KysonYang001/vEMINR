@@ -6,6 +6,7 @@
 - [S3 Walkthrough](#s3-walkthrough)
   - [S3.1 Training](#s31-training)
   - [S3.2 Testing](#s32-testing)
+  - [S3.3 Model Zoo](#s33-model-zoo)
 - [S4 Availability of data](#s4-availability-of-data)
 
 ## S1 Overview
@@ -64,6 +65,15 @@ Testing our model.
   ```bash
  ./test.sh
   ```
+
+### S3.3 Model Zoo
+
+We provide the trained models on the EPFL dataset at BaiduYun and GoogleDrive.
+
+| Methods         | Models                     | Download                                                                 |
+|-----------------|----------------------------|--------------------------------------------------------------------------|
+| The degradation predictor    | epoch-best.ckpt   | [BaiduYun](https://pan.baidu.com/s/1KWFARNWuFXW2pCrpuxt20g?) (Access code: kysy) or [GoogleDrive](https://drive.google.com/file/d/1mAv4LlfPImMc_G9I5fvPdvT9lvrBQQ-e/view?usp=sharing) |
+| The super-resolution model    | epoch-best.ckpt   | [BaiduYun](https://pan.baidu.com/s/1KWFARNWuFXW2pCrpuxt20g?) (Access code: kysy) or [GoogleDrive](https://drive.google.com/file/d/1mAv4LlfPImMc_G9I5fvPdvT9lvrBQQ-e/view?usp=sharing) |
 
 ## S4 Availability of data
 The EPFLdataset was downloaded from the EPFL website https://www.epfl.ch/labs/cvlab/data/data-em/.
