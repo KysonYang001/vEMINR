@@ -1,4 +1,4 @@
-# vEMINR: Faster Isotropic Reconstruction for Voluem Electron Microscopy with Implicit Neural Representation
+# vEMINR: Faster Isotropic Reconstruction for Volume Electron Microscopy with Implicit Neural Representation
 
 ## Contents
 - [S1 Overview](#s1-overview)
