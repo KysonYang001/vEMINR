@@ -45,7 +45,7 @@ You can change the model, training, data settings in the config file. You can al
   
   ```bash
   configs/degradation.yaml
-  configs/train_INR-volume.yaml
+  configs/train_INR-rdn-liif-volume.yaml
   ```
 
 Training our model.
