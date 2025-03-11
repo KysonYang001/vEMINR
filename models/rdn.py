@@ -51,6 +51,7 @@ class RDB(nn.Module):
         for c in range(C):
             convs.append(RDB_Conv(G0 + c * G, G))
         self.convs = nn.Sequential(*convs)
+        self.apt = APT(nin=256, nout=64)
 
         self.attention = False
 
@@ -91,6 +92,8 @@ class RDN(nn.Module):
             nn.Conv2d(self.D * G0, G0, 1, padding=0, stride=1),
             nn.Conv2d(G0, G0, kSize, padding=(kSize - 1) // 2, stride=1)
         ])
+
+        self.apt = APT(nin=256, nout=64)
 
 
         if args.no_upsampling:
