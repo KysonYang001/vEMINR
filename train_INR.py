@@ -177,7 +177,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', help='config file path', default='configs/train_INR-rdn-liif-volume.yaml')
     parser.add_argument('--savedir', help='your path to save model directory', default="checkpoints/SR")
-    parser.add_argument('--tag', default=None)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--DDP', action='store_true')
     args = parser.parse_args()
@@ -189,8 +188,6 @@ if __name__ == '__main__':
         save_name = args.savedir
         if save_name is None:
             save_name = '_' + args.config.split('/')[-1][:-len('.yaml')]
-        if args.tag is not None:
-            args.savedir = os.path.join(save_name, args.tag)
         if os.path.exists(args.savedir) is False:
             os.makedirs(args.savedir)
             print('{} succeed'.format(args.savedir))
