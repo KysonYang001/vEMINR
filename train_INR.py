@@ -155,7 +155,7 @@ class Trainer():
             if val_res > self.max_val_v:
                 self.max_val_v = val_res
                 utils.save(self.model, self.optimizer, self.config['optimizer'], epoch, self.args.DDP,
-                           self.args.savepath, 'best')
+                           self.args.savedir, 'best')
             # if losses.item() < self.min_loss:
             #     self.min_loss = losses.item()
             #     utils.save(self.model, self.optimizer, self.config['optimizer'], epoch, self.args.DDP,
@@ -166,11 +166,11 @@ class Trainer():
             tqdm.write(res)
 
             # save file
-            utils.save(self.model, self.optimizer, self.config['optimizer'], epoch, self.args.DDP, self.args.savepath,
+            utils.save(self.model, self.optimizer, self.config['optimizer'], epoch, self.args.DDP, self.args.savedir,
                        'last')
             if (self.epoch_save is not None) and (epoch % self.epoch_save == 0):
                 utils.save(self.model, self.optimizer, self.config['optimizer'], epoch, self.args.DDP,
-                           self.args.savepath, 'hun')
+                           self.args.savedir, 'hun')
 
 
 if __name__ == '__main__':
