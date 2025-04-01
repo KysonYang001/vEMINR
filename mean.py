@@ -12,7 +12,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     yz = io.imread(args.yz)
-    xz = io.imsave(args.xz)
+    xz = io.imread(args.xz)
 
     mean = (yz*1.0+xz*1.0) / 2
     mean = mean.astype(np.uint8)
