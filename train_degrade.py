@@ -181,14 +181,14 @@ if __name__ == '__main__':
         if save_name is None:
             save_name = '_' + args.config.split('/')[-1][:-len('.yaml')]
         if args.tag is not None:
-            args.savepath = os.path.join(save_name, args.tag)
-        if os.path.exists(args.savepath) is False:
-            os.makedirs(args.savepath)
-            print('{} succeed'.format(args.savepath))
+            args.savedir = os.path.join(save_name, args.tag)
+        if os.path.exists(args.savedir) is False:
+            os.makedirs(args.savedir)
+            print('{} succeed'.format(args.savedir))
     torch.manual_seed(config['seed'])
 
     #### log file
-    with open(os.path.join(args.savepath, 'config.yaml'), 'w') as f:
+    with open(os.path.join(args.savedir, 'config.yaml'), 'w') as f:
         yaml.dump(config, f, sort_keys=False)
 
     t = Trainer(config, args)
