@@ -43,8 +43,12 @@ class Model(nn.Module):
             feature = self.encoder(lr)  # fix
 
         inp = (lr - self.inp_sub) / self.inp_div
-        pred_rgb = self.SR(inp, coord, cell, feature)
+        preds = self.SR(inp, coord, cell, feature)
+
+        # 处理RGB预测
+        pred_rgb = preds['rgb']
         pred_rgb = pred_rgb * self.gt_div + self.gt_sub
         pred_rgb.clamp_(0, 1)
+        preds['rgb'] = pred_rgb
 
-        return pred_rgb
+        return preds
