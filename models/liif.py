@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 import models
 from models import register
+from models.mlp import MLP
 from utils import make_coord
 
 import rff
@@ -25,10 +26,11 @@ class APT(nn.Module):
 @register('liif')
 class LIIF(nn.Module):
 
-    def __init__(self, encoder_spec, imnet_spec=None,
+    def __init__(self, encoder_spec, imnet_spec=None, sdf_head=False,
                  local_ensemble=True, feat_unfold=True, cell_decode=True, degrade=True):
         super().__init__()
         self.local_ensemble = local_ensemble
+        self.sdf_head = sdf_head
         self.feat_unfold = feat_unfold
         self.cell_decode = cell_decode
         self.degrade = degrade
@@ -50,11 +52,17 @@ class LIIF(nn.Module):
         else:
             self.imnet = None
 
+        if self.sdf_head and imnet_spec is not None:
+            sdf_imnet_spec = imnet_spec.copy()
+            sdf_imnet_spec['args'] = sdf_imnet_spec['args'].copy()
+            sdf_imnet_spec['args']['out_dim'] = 1
+            self.imnet_sdf = models.make(sdf_imnet_spec, args={'in_dim': imnet_in_dim}) # type: ignore
+            
     def gen_feat(self, inp):
         self.feat = self.encoder(inp)
         return self.feat
 
-    def query_rgb(self, coord, cell=None, degrade=None):
+    def query(self, coord, cell=None, degrade=None):
         feat = self.feat
 
         if self.imnet is None:
@@ -82,7 +90,7 @@ class LIIF(nn.Module):
             .permute(2, 0, 1) \
             .unsqueeze(0).expand(feat.shape[0], 2, *feat.shape[-2:])
 
-        preds = []
+        preds_list = []
         areas = []
         for vx in vx_lst:
             for vy in vy_lst:
@@ -108,7 +116,7 @@ class LIIF(nn.Module):
                 inp = torch.cat([q_feat, rel_coord], dim=-1)
 
                 if self.cell_decode:
-                    rel_cell = cell.clone()
+                    rel_cell = cell.clone()  # type: ignore
                     rel_cell[:, :, 0] *= feat.shape[-2]
                     rel_cell[:, :, 1] *= feat.shape[-1]
                     inp = torch.cat([inp, rel_cell], dim=-1)
@@ -119,8 +127,14 @@ class LIIF(nn.Module):
                     inp = torch.cat([inp, vector_degrade], dim=-1)
 
                 bs, q = coord.shape[:2]
-                pred = self.imnet(inp.view(bs * q, -1)).view(bs, q, -1)
-                preds.append(pred)
+                pred_rgb = self.imnet(inp.view(bs * q, -1)).view(bs, q, -1)
+
+                current_preds = {'rgb': pred_rgb}
+                if self.sdf_head:
+                    pred_sdf = self.imnet_sdf(inp.view(bs * q, -1)).view(bs, q, -1)
+                    current_preds['sdf'] = pred_sdf
+
+                preds_list.append(current_preds)
 
                 area = torch.abs(rel_coord[:, :, 0] * rel_coord[:, :, 1])
                 areas.append(area + 1e-9)
@@ -129,11 +143,18 @@ class LIIF(nn.Module):
         if self.local_ensemble:
             t = areas[0]; areas[0] = areas[3]; areas[3] = t
             t = areas[1]; areas[1] = areas[2]; areas[2] = t
-        ret = 0
-        for pred, area in zip(preds, areas):
-            ret = ret + pred * (area / tot_area).unsqueeze(-1)
-        return ret
 
+        # 对每个预测头的结果进行加权平均
+        final_preds = {}
+        for head in preds_list[0].keys():  # 遍历 'rgb', 'sdf'
+            acc = 0
+            for pred_dict, area in zip(preds_list, areas):
+                acc = acc + pred_dict[head] * (area / tot_area).unsqueeze(-1)
+                final_preds[head] = acc
+
+        return final_preds
+
+            
     def forward(self, inp, coord, cell, degrade=None):
         self.gen_feat(inp)
-        return self.query_rgb(coord, cell, degrade)
+        return self.query(coord, cell, degrade)

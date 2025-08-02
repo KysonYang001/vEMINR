@@ -67,6 +67,7 @@ model: # model setting
         name: rdn
         args:
           no_upsampling: true
+      sdf_head: true # new add !
       imnet_spec: # implicit degradation predictor.
         name: mlp
         args:
