@@ -29,6 +29,7 @@ class dequeue_and_enqueue(nn.Module):
             self.queue_cell = torch.zeros(self.queue_size, config['sample_q'], 2).to(self.device)
             self.queue_coord = torch.zeros(self.queue_size, config['sample_q'], 2).to(self.device)
             self.queue_scale = torch.zeros(self.queue_size).to(self.device)
+            self.queue_sdf = torch.zeros(self.queue_size, config['sample_q'], c).to(self.device)
             self.queue_ptr = 0
         
     def forward(self, inp):
@@ -56,12 +57,14 @@ class dequeue_and_enqueue(nn.Module):
                 self.queue_cell = self.queue_cell[idx]
                 self.queue_coord = self.queue_coord[idx]
                 self.queue_scale = self.queue_scale[idx]
+                self.queue_sdf = self.queue_sdf[idx]
                 # get first b samples
                 lr_dequeue = self.queue_lr[0:self.b, :, :, :].clone()
                 gt_dequeue = self.queue_gt[0:self.b, :, :].clone()
                 cell_dequeue = self.queue_cell[0:self.b, :, :].clone()
                 coord_dequeue = self.queue_coord[0:self.b, :, :].clone()
                 scale_dequeue = self.queue_scale[0:self.b].clone()
+                sdf_dequeue = self.queue_sdf[0:self.b, :, :].clone()
                 
                 # update the queue
                 self.queue_lr[0:self.b, :, :, :] = inp['lr'].clone()
@@ -69,8 +72,9 @@ class dequeue_and_enqueue(nn.Module):
                 self.queue_cell[0:self.b, :, :] = inp['cell'].clone()
                 self.queue_coord[0:self.b, :, :] = inp['coord'].clone()
                 self.queue_scale[0:self.b] = inp['scale'].clone()
-                
-                return lr_dequeue, gt_dequeue, cell_dequeue, coord_dequeue, scale_dequeue.unsqueeze(-1)
+                self.queue_sdf[0:self.b, :, :] = inp['sdf'].clone()
+
+                return lr_dequeue, gt_dequeue, cell_dequeue, coord_dequeue, scale_dequeue.unsqueeze(-1), sdf_dequeue
 
         else:
             # pool isn't full
@@ -87,7 +91,7 @@ class dequeue_and_enqueue(nn.Module):
                 self.queue_cell[self.queue_ptr:self.queue_ptr + self.b, :, :] = inp['cell'].clone()
                 self.queue_coord[self.queue_ptr:self.queue_ptr + self.b, :, :] = inp['coord'].clone()
                 self.queue_scale[self.queue_ptr:self.queue_ptr + self.b] = inp['scale'].clone()
+                if inp.get('gt_sdf') is not None:
+                    self.queue_sdf[self.queue_ptr:self.queue_ptr + self.b, :, :] = inp['gt_sdf'].clone()
                 self.queue_ptr = self.queue_ptr + self.b
-                return inp['lr'], inp['gt'], inp['cell'], inp['coord'], inp['scale'].unsqueeze(-1)
-            
-            
+                return inp['lr'], inp['gt'], inp['cell'], inp['coord'], inp['scale'].unsqueeze(-1), inp.get('gt_sdf', None)
