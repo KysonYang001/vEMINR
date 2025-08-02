@@ -155,10 +155,9 @@ class Trainer():
             model_inst = self.model.module if self.args.DDP else self.model
             if self.lambda_geom > 0 and gt_sdf is not None and hasattr(model_inst.SR, 'sdf_pred'):
                 pred_sdf = model_inst.SR.sdf_pred
-                # 将SDF预测和真值反归一化到原始尺度
-                pred_sdf_orig = pred_sdf * self.sdf_div + self.sdf_sub
-                gt_sdf_orig = gt_sdf * self.sdf_div + self.sdf_sub
-                loss_geom = self.geom_criterion(pred_sdf_orig, gt_sdf_orig)
+                # 修复：直接在归一化空间计算SDF损失，避免反归一化的数值问题
+                # 这样可以避免大数值导致的梯度爆炸问题
+                loss_geom = self.geom_criterion(pred_sdf, gt_sdf)
                 total_loss = total_loss + self.lambda_geom * loss_geom
 
             losses.add(total_loss.item()) # for logging

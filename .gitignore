@@ -4,6 +4,8 @@ checkpoints/
 data/
 wandb/
 *npy
+*png
+*zip
 
 *.pyc
 

@@ -60,7 +60,28 @@ class ImageFolder(Dataset):
 @register('image-volume')
 class ImageVolume(Dataset):
     def __init__(self, root_path, sdf_path=None, first_k=None, repeat=1, rank=0, ngpu=1):
-        self.image = io.imread(root_path)
+        # 检查root_path是文件还是目录
+        if os.path.isfile(root_path):
+            # 原始的TIFF文件模式
+            self.image = io.imread(root_path)
+            self.png_mode = False
+        elif os.path.isdir(root_path):
+            # PNG文件序列模式
+            self.png_mode = True
+            self.root_path = root_path
+            # 获取所有PNG文件并按数字顺序排序
+            png_files = [f for f in os.listdir(root_path) if f.endswith('.png')]
+            png_files.sort(key=lambda x: int(x.split('.')[0]))
+            self.png_files = png_files
+            print(f"发现 {len(png_files)} 个PNG文件")
+            
+            # 加载第一张图像来获取尺寸信息
+            first_img = Image.open(os.path.join(root_path, png_files[0]))
+            self.img_height, self.img_width = first_img.size[1], first_img.size[0]  # PIL: (width, height)
+            first_img.close()
+        else:
+            raise ValueError(f"root_path 必须是文件或目录: {root_path}")
+        
         self.repeat = repeat
         self.sdf = None
 
@@ -73,29 +94,49 @@ class ImageVolume(Dataset):
                 self.sdf = io.imread(sdf_path)
             else:
                 raise ValueError(f"不支持的SDF文件格式: {ext}。请使用.npy或.tif。")
-            # 关键检查：确保图像和SDF体数据的形状匹配
-            assert self.image.shape == self.sdf.shape, \
-                f"图像形状 {self.image.shape} 和 SDF形状 {self.sdf.shape} 必须一致。"
-
-        self.length, _, _ = self.image.shape
+            
+            # 检查数据维度匹配
+            if self.png_mode:
+                expected_shape = (len(self.png_files), self.img_height, self.img_width)
+                assert self.sdf.shape == expected_shape, \
+                    f"SDF形状 {self.sdf.shape} 与PNG序列期望形状 {expected_shape} 不匹配"
+                self.length = len(self.png_files)
+            else:
+                assert self.image.shape == self.sdf.shape, \
+                    f"图像形状 {self.image.shape} 和 SDF形状 {self.sdf.shape} 必须一致。"
+                self.length, _, _ = self.image.shape
+        else:
+            if self.png_mode:
+                self.length = len(self.png_files)
+            else:
+                self.length, _, _ = self.image.shape
 
         if first_k is not None:
-            self.image = self.image[:first_k]
-            if self.sdf is not None:
+            self.length = min(self.length, first_k)
+            if not self.png_mode and self.sdf is not None:
+                self.image = self.image[:first_k]
                 self.sdf = self.sdf[:first_k]
 
     def __len__(self):
         return self.length * self.repeat
 
     def __getitem__(self, idx):
-        img_slice = self.image[idx % self.length]
+        actual_idx = idx % self.length
+        
+        if self.png_mode:
+            # 加载PNG文件
+            png_path = os.path.join(self.root_path, self.png_files[actual_idx])
+            img_slice = np.array(Image.open(png_path))
+        else:
+            # 原始TIFF模式
+            img_slice = self.image[actual_idx]
 
         item = {
             'img': transforms.ToTensor()(Image.fromarray(img_slice, mode='L'))
         }
 
         if self.sdf is not None:
-            sdf_slice = self.sdf[idx % self.length]
+            sdf_slice = self.sdf[actual_idx]
             # SDF值是浮点数，直接转换为Tensor
             item['sdf'] = torch.from_numpy(sdf_slice.astype(np.float32)).unsqueeze(0)
 

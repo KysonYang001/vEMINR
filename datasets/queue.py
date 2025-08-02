@@ -14,6 +14,14 @@ class dequeue_and_enqueue(nn.Module):
         self.b, c, h, w = config['total_batch_size'], 1, config['inp_size'], config['inp_size']*config['train_dataset1']['wrapper']['args']['scale']
         self.queue_size = config['queue_size']
         self.state = state
+        
+        # 添加SDF归一化参数
+        self.sdf_norm = None
+        if config.get('sdf_norm'):
+            sdf_norm = config['sdf_norm']
+            self.sdf_sub = torch.FloatTensor(sdf_norm['sub']).to(self.device)
+            self.sdf_div = torch.FloatTensor(sdf_norm['div']).to(self.device)
+            self.sdf_norm = True
 
         # initialize
         if state == 'degrade':
@@ -31,6 +39,12 @@ class dequeue_and_enqueue(nn.Module):
             self.queue_scale = torch.zeros(self.queue_size).to(self.device)
             self.queue_sdf = torch.zeros(self.queue_size, config['sample_q'], c).to(self.device)
             self.queue_ptr = 0
+    
+    def normalize_sdf(self, sdf_tensor):
+        """对SDF张量应用归一化: (x - mean) / std"""
+        if self.sdf_norm and sdf_tensor is not None:
+            return (sdf_tensor - self.sdf_sub) / self.sdf_div
+        return sdf_tensor
         
     def forward(self, inp):
         if self.queue_ptr == self.queue_size:  # the pool is full
@@ -64,6 +78,7 @@ class dequeue_and_enqueue(nn.Module):
                 cell_dequeue = self.queue_cell[0:self.b, :, :].clone()
                 coord_dequeue = self.queue_coord[0:self.b, :, :].clone()
                 scale_dequeue = self.queue_scale[0:self.b].clone()
+                # SDF数据已经在队列中归一化了，直接取出即可
                 sdf_dequeue = self.queue_sdf[0:self.b, :, :].clone()
                 
                 # update the queue
@@ -72,7 +87,13 @@ class dequeue_and_enqueue(nn.Module):
                 self.queue_cell[0:self.b, :, :] = inp['cell'].clone()
                 self.queue_coord[0:self.b, :, :] = inp['coord'].clone()
                 self.queue_scale[0:self.b] = inp['scale'].clone()
-                self.queue_sdf[0:self.b, :, :] = inp['sdf'].clone()
+                # 对SDF应用归一化
+                gt_sdf_normalized = self.normalize_sdf(inp.get('gt_sdf'))
+                if gt_sdf_normalized is not None:
+                    self.queue_sdf[0:self.b, :, :] = gt_sdf_normalized.clone()
+                else:
+                    # 如果没有SDF数据，设置为零
+                    self.queue_sdf[0:self.b, :, :] = torch.zeros_like(self.queue_sdf[0:self.b, :, :])
 
                 return lr_dequeue, gt_dequeue, cell_dequeue, coord_dequeue, scale_dequeue.unsqueeze(-1), sdf_dequeue
 
@@ -91,7 +112,12 @@ class dequeue_and_enqueue(nn.Module):
                 self.queue_cell[self.queue_ptr:self.queue_ptr + self.b, :, :] = inp['cell'].clone()
                 self.queue_coord[self.queue_ptr:self.queue_ptr + self.b, :, :] = inp['coord'].clone()
                 self.queue_scale[self.queue_ptr:self.queue_ptr + self.b] = inp['scale'].clone()
-                if inp.get('gt_sdf') is not None:
-                    self.queue_sdf[self.queue_ptr:self.queue_ptr + self.b, :, :] = inp['gt_sdf'].clone()
+                # 对SDF应用归一化
+                gt_sdf_normalized = self.normalize_sdf(inp.get('gt_sdf'))
+                if gt_sdf_normalized is not None:
+                    self.queue_sdf[self.queue_ptr:self.queue_ptr + self.b, :, :] = gt_sdf_normalized.clone()
+                else:
+                    # 如果没有SDF数据，设置为零
+                    self.queue_sdf[self.queue_ptr:self.queue_ptr + self.b, :, :] = torch.zeros_like(self.queue_sdf[self.queue_ptr:self.queue_ptr + self.b, :, :])
                 self.queue_ptr = self.queue_ptr + self.b
-                return inp['lr'], inp['gt'], inp['cell'], inp['coord'], inp['scale'].unsqueeze(-1), inp.get('gt_sdf', None)
+                return inp['lr'], inp['gt'], inp['cell'], inp['coord'], inp['scale'].unsqueeze(-1), gt_sdf_normalized
