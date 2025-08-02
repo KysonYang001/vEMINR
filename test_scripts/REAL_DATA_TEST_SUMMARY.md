@@ -46,16 +46,3 @@ python test_real_training.py --steps 5 --batch_size 4 --scale 4
 ```bash
 python test_real_training.py --keep_config --config configs/my_training_config.yaml
 ```
-
-## 重要发现
-
-1. **SDF损失值较大** (约80万): 这可能表明需要调整几何损失的权重或归一化方法
-2. **训练速度快** (每步<1秒): 说明数据加载和模型推理效率良好
-3. **GPU使用正常**: CUDA设备正确识别和使用
-
-## 建议下一步
-
-1. 调整 `lambda_geom` 参数（当前0.1可能过大）
-2. 验证SDF归一化是否合适
-3. 考虑使用更大的batch_size以提高训练效率
-4. 监控长期训练的损失收敛情况
