@@ -13,7 +13,7 @@ train_dataset1: # data set setting.
     name: image-volume
     args:
       root_path: /your/path/to/data.tif # volume data path.
-      sdf_path: /your/path/to/sdf.tif # sdf data path.
+      sdf_path: /your/path/to/sdf.npy # sdf data path.
       repeat: 8 # images in dataset will be loaded 10 times.
   wrapper: # the module responsible for preprocessing image.
     name: sr-gaussian
