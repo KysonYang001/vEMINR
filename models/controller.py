@@ -20,7 +20,6 @@ class Model(nn.Module):
         self.encoder = models.make(spec['degrade'], load_sd=spec['path'], freeze=True, key='degrade').to(self.device)
         self.SR = models.make(spec['SR']).to(self.device)
 
-
         if config.get('data_norm') is None:
             config['data_norm'] = {
                 'inp': {'sub': [0], 'div': [1]},
@@ -34,6 +33,10 @@ class Model(nn.Module):
         t = data_norm['gt']
         self.gt_sub = torch.FloatTensor(t['sub']).view(1, 1, -1).to(self.device)
         self.gt_div = torch.FloatTensor(t['div']).view(1, 1, -1).to(self.device)
+        if config.get('sdf_norm'):
+            t = config['sdf_norm']
+            self.sdf_sub = torch.FloatTensor(t['sub']).view(1, 1, -1).to(self.device)
+            self.sdf_div = torch.FloatTensor(t['div']).view(1, 1, -1).to(self.device)
 
     def forward(self, lr, coord=None, cell=None, scale=1, kernel=None, state='test'):
         with torch.no_grad():

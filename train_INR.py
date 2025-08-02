@@ -77,6 +77,14 @@ class Trainer():
         self.gt_sub = torch.FloatTensor(t['sub']).view(1, 1, -1).to(self.device)
         self.gt_div = torch.FloatTensor(t['div']).view(1, 1, -1).to(self.device)
 
+        # 为SDF添加归一化参数
+        self.lambda_geom = config.get('lambda_geom', 0.0)  # 如果未定义则默认为0
+        if self.lambda_geom > 0 and config.get('sdf_norm'):
+            t = config['sdf_norm']
+            self.sdf_sub = torch.FloatTensor(t['sub']).view(1, 1, -1).to(self.device)
+            self.sdf_div = torch.FloatTensor(t['div']).view(1, 1, -1).to(self.device)
+            self.geom_criterion = nn.MSELoss()
+
         self.scale = config['train_dataset1']['wrapper']['args']['scale']
         self.inp_size = config['inp_size']
     def preprocess(self, batch):
@@ -86,27 +94,37 @@ class Trainer():
 
     def data(self, batch1, pool):
         lr = self.preprocess(batch1)
-        p = {'lr': lr, 'gt': batch1['gt'], 'cell': batch1['cell'], 'coord': batch1['coord'], 'scale': batch1['scale'].type(torch.FloatTensor)}
-        lr, gt, cell, coord, scale = pool(p)
-        return lr, gt, cell, coord, scale
+        p = {
+            'lr': lr,
+            'gt': batch1['gt'],
+            'cell': batch1['cell'],
+            'coord': batch1['coord'],
+            'scale': batch1['scale'].type(torch.FloatTensor),
+            'gt_sdf': batch1.get('gt_sdf')
+        }
+        # 注意：pool的实现需要更新以处理gt_sdf
+        lr, gt, cell, coord, scale, gt_sdf = pool(p)
+        return lr, gt, cell, coord, scale, gt_sdf
 
     def val(self, eval_bsize=None):
         self.model.eval()
         metric_fn = utils.calc_psnr
         val_res = utils.Averager()
         for batch1 in tqdm(self.val_loader1, leave=False, desc='val'):
-            for k1, v1 in batch1.items():
+            for k1, v1 in batch1.items(): # type: ignore
                 batch1[k1] = v1.to(self.device)
 
-            lr, gt, cell, coord, scale = self.data(batch1, self.pool_val)
+            # 注意：验证时也需要获取SDF数据，尽管我们可能只评估PSNR
+            lr, gt, cell, coord, scale, _ = self.data(batch1, self.pool_val)
             with torch.no_grad():
                 if eval_bsize is None:
-                    pred = self.model(lr, coord, cell)
+                    preds = self.model(lr, coord, cell)
+                    pred = preds['rgb']
                 else:
                     inp = (lr - self.inp_sub) / self.inp_div
-                    pred = test.batched_predict(self.model, inp, coord, cell, eval_bsize)
-                    pred = pred * self.gt_div + self.gt_sub
-                    pred.clamp_(0, 1)
+                    preds = test.batched_predict(self.model, inp, coord, cell, eval_bsize)
+                    pred = preds['rgb']  # 提取RGB预测
+
             res = metric_fn(pred, gt)
             val_res.add(res.item(), self.bs)
         return val_res.item()
@@ -122,16 +140,31 @@ class Trainer():
 
         for batch1 in tqdm(self.train_loader1, leave=False, desc='train'):
 
-            for k1, v1 in batch1.items():
+            for k1, v1 in batch1.items(): # type: ignore
                 batch1[k1] = v1.to(self.device)
 
-            lr, gt, cell, coord, scale = self.data(batch1, self.pool)
+            lr, gt, cell, coord, scale, gt_sdf = self.data(batch1, self.pool)
 
             self.optimizer.zero_grad()
-            pred_rgb = self.model(lr, coord, cell, state='train')
 
-            loss = self.criterion(pred_rgb, gt)
-            losses.add(loss.item())
+            preds = self.model(lr, coord, cell, state='train')
+            pred_rgb = preds['rgb']
+
+            # 计算SR损失
+            loss_sr = self.criterion(pred_rgb, gt)
+            total_loss = loss_sr
+            losses.add(loss_sr.item())
+
+            # 如果启用了SDF，则计算并添加几何损失
+            if self.lambda_geom > 0 and 'sdf' in preds and gt_sdf is not None:
+                pred_sdf = preds['sdf']
+                # 将SDF预测和真值反归一化到原始尺度
+                pred_sdf_orig = pred_sdf * self.sdf_div + self.sdf_sub
+                gt_sdf_orig = gt_sdf * self.sdf_div + self.sdf_sub
+                loss_geom = self.geom_criterion(pred_sdf_orig, gt_sdf_orig)
+                total_loss = total_loss + self.lambda_geom * loss_geom
+
+            loss = total_loss  # 用于反向传播
             loss.backward()
             self.optimizer.step()
 
