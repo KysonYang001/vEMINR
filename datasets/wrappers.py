@@ -145,12 +145,17 @@ class ScaleDownsampled_gaussian(Dataset):
     def __getitem__(self, idx):
 
         s = self.scale
-        img = self.dataset[idx]
+        item = self.dataset[idx]
+        img = item['img']
+        sdf = item.get('sdf', None)
 
         if self.inp_size is None:
             h_lr = math.floor(img.shape[-2] / s + 1e-9)
             w_lr = math.floor(img.shape[-1] / s + 1e-9)
             crop_img = img[:, :round(h_lr * s), :round(w_lr * s)]  # assume round int
+            if sdf is not None:
+                crop_sdf = sdf[:, :round(h_lr * s), :round(w_lr * s)]
+                item['sdf'] = crop_sdf
         else:
             w_lr = self.inp_size
             w_hr = round(w_lr * s)
@@ -159,6 +164,10 @@ class ScaleDownsampled_gaussian(Dataset):
 
             # clean
             crop_img = img[:, x0: x0 + w_hr, y0: y0 + w_hr]
+            
+            if sdf is not None:
+                crop_sdf = sdf[x0: x0 + w_hr, y0: y0 + w_hr]
+                item['sdf'] = crop_sdf
 
         if self.augment:
             hflip = random.random() < 0.5
@@ -175,6 +184,9 @@ class ScaleDownsampled_gaussian(Dataset):
                 return x
 
             crop_img = augment(crop_img)
+            if sdf is not None:
+                crop_sdf = augment(crop_sdf) # type: ignore
+                item['sdf'] = crop_sdf
 
         hr_coord, hr_rgb = to_pixel_samples(crop_img.contiguous())
         if self.sample_q is not None:
@@ -183,14 +195,24 @@ class ScaleDownsampled_gaussian(Dataset):
             hr_coord = hr_coord[sample_lst]
             hr_rgb = hr_rgb[sample_lst]
 
-        cell = torch.ones_like(hr_coord)
-        cell[:, 0] *= 2 / crop_img.shape[-2]
-        cell[:, 1] *= 2 / crop_img.shape[-1]
-
-        return {
+        item_dict = {
             'gt': hr_rgb,
-            'cell': cell,
             'coord': hr_coord,
             'scale': s,
             'inp': crop_img
         }
+
+        if sdf is not None:
+            # Sample SDF values at the same coordinates
+            _, hr_sdf = to_pixel_samples(crop_sdf.contiguous()) # type : ignore
+            if self.sample_q is not None:
+                hr_sdf = hr_sdf[sample_lst] # type: ignore
+                item_dict['gt_sdf'] = hr_sdf
+
+        cell = torch.ones_like(hr_coord)
+        cell[:, 0] *= 2 / crop_img.shape[-2]
+        cell[:, 1] *= 2 / crop_img.shape[-1]
+
+        item_dict['cell'] = cell
+
+        return item_dict 

@@ -58,21 +58,41 @@ class ImageFolder(Dataset):
 
 @register('image-volume')
 class ImageVolume(Dataset):
-    def __init__(self, root_path, first_k=None, repeat=1, rank=0, ngpu=1):
+    def __init__(self, root_path, sdf_path=None, first_k=None, repeat=1, rank=0, ngpu=1):
         self.image = io.imread(root_path)
         self.repeat = repeat
+        self.sdf = None
+
+        if sdf_path is not None:
+            print(f"正在加载SDF数据从: {sdf_path}")
+            self.sdf = io.imread(sdf_path)
+            # 关键检查：确保图像和SDF体数据的形状匹配
+            assert self.image.shape == self.sdf.shape, \
+                f"图像形状 {self.image.shape} 和 SDF形状 {self.sdf.shape} 必须一致。"
 
         self.length, _, _ = self.image.shape
 
         if first_k is not None:
             self.image = self.image[:first_k]
+            if self.sdf is not None:
+                self.sdf = self.sdf[:first_k]
 
     def __len__(self):
         return self.length * self.repeat
 
     def __getitem__(self, idx):
-        x = self.image[idx % self.length]
-        return transforms.ToTensor()(Image.fromarray(x, mode='L'))
+        img_slice = self.image[idx % self.length]
+
+        item = {
+            'img': transforms.ToTensor()(Image.fromarray(img_slice, mode='L'))
+        }
+
+        if self.sdf is not None:
+            sdf_slice = self.sdf[idx % self.length]
+            # SDF值是浮点数，直接转换为Tensor
+            item['sdf'] = torch.from_numpy(sdf_slice.astype(np.float32)).unsqueeze(0)
+
+        return item  # 返回一个字典，包含图像和SDF数据（如果存在）
 
 
 @register('image-test')
