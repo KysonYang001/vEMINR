@@ -15,21 +15,24 @@ from skimage import io
 
 
 def batched_predict(model, inp, coord, cell, bsize):
-	n = coord.shape[1]
-	ql = 0
-	preds = []
+    n = coord.shape[1]
+    ql = 0
+    preds = []
 
-	feature = model.encoder(inp) # fix
-	model.SR.gen_feat(inp)
+    # DDP模式下需要访问 .module
+    SR_model = model.module.SR if hasattr(model, 'module') else model.SR
+    
+    feature = model.encoder(inp) # fix
+    SR_model.gen_feat(inp)
 
-	while ql < n:
-		qr = min(ql + bsize, n)
-		pred = model.SR.query_rgb(coord[:, ql: qr, :], cell[:, ql: qr, :], feature)
-		preds.append(pred)
-		ql = qr
-	pred = torch.cat(preds, dim=1)
-	return pred
-
+    while ql < n:
+        qr = min(ql + bsize, n)
+        # SR_model.query 只返回RGB
+        pred = SR_model.query(coord[:, ql: qr, :], cell[:, ql: qr, :], feature)
+        preds.append(pred)
+        ql = qr
+    pred = torch.cat(preds, dim=1)
+    return pred
 
 
 

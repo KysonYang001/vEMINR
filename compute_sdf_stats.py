@@ -1,18 +1,26 @@
 import argparse
 from skimage import io
 import numpy as np
+import os
 
 def main():
     """
-    一个简单的工具，用于计算3D TIFF体数据（volume data）的全局均值和标准差。
+    一个简单的工具，用于计算3D体数据（.tif或.npy）的全局均值和标准差。
     """
-    parser = argparse.ArgumentParser(description="为3D TIFF体数据计算均值和标准差。")
-    parser.add_argument('--path', type=str, required=True, help='SDF .tif 体数据文件的路径。')
+    parser = argparse.ArgumentParser(description="为3D体数据计算均值和标准差。")
+    parser.add_argument('--path', type=str, required=True, help='SDF .tif 或 .npy 体数据文件的路径。')
     args = parser.parse_args()
 
     print(f"正在从以下路径加载体数据: {args.path}")
     try:
-        volume = io.imread(args.path)
+        _, ext = os.path.splitext(args.path)
+        if ext.lower() == '.npy':
+            volume = np.load(args.path)
+        elif ext.lower() in ['.tif', '.tiff']:
+            volume = io.imread(args.path)
+        else:
+            raise ValueError(f"不支持的文件格式: {ext}。请使用.npy或.tif。")
+            
     except FileNotFoundError:
         print(f"错误: 在路径 {args.path} 未找到文件。")
         return

@@ -38,7 +38,7 @@ class LIIF(nn.Module):
         self.encoder = models.make(encoder_spec)
         self.gaussian = rff.layers.GaussianEncoding(sigma=10.0, input_size=2, encoded_size=64)
         self.apt = APT(256, 64)
-
+        
         if imnet_spec is not None:
             imnet_in_dim = self.encoder.out_dim
             if self.feat_unfold:
@@ -52,6 +52,7 @@ class LIIF(nn.Module):
         else:
             self.imnet = None
 
+        self.sdf_pred = None
         if self.sdf_head and imnet_spec is not None:
             sdf_imnet_spec = imnet_spec.copy()
             sdf_imnet_spec['args'] = sdf_imnet_spec['args'].copy()
@@ -90,7 +91,7 @@ class LIIF(nn.Module):
             .permute(2, 0, 1) \
             .unsqueeze(0).expand(feat.shape[0], 2, *feat.shape[-2:])
 
-        preds_list = []
+        rgb_preds, sdf_preds = [], []
         areas = []
         for vx in vx_lst:
             for vy in vy_lst:
@@ -129,12 +130,13 @@ class LIIF(nn.Module):
                 bs, q = coord.shape[:2]
                 pred_rgb = self.imnet(inp.view(bs * q, -1)).view(bs, q, -1)
 
-                current_preds = {'rgb': pred_rgb}
-                if self.sdf_head:
-                    pred_sdf = self.imnet_sdf(inp.view(bs * q, -1)).view(bs, q, -1)
-                    current_preds['sdf'] = pred_sdf
+                rgb_preds.append(pred_rgb)
 
-                preds_list.append(current_preds)
+                
+                if self.sdf_head and self.training:
+                    pred_sdf = self.imnet_sdf(inp.view(bs * q, -1)).view(bs, q, -1)
+                    sdf_preds.append(pred_sdf)
+
 
                 area = torch.abs(rel_coord[:, :, 0] * rel_coord[:, :, 1])
                 areas.append(area + 1e-9)
@@ -144,15 +146,19 @@ class LIIF(nn.Module):
             t = areas[0]; areas[0] = areas[3]; areas[3] = t
             t = areas[1]; areas[1] = areas[2]; areas[2] = t
 
-        # 对每个预测头的结果进行加权平均
-        final_preds = {}
-        for head in preds_list[0].keys():  # 遍历 'rgb', 'sdf'
-            acc = 0
-            for pred_dict, area in zip(preds_list, areas):
-                acc = acc + pred_dict[head] * (area / tot_area).unsqueeze(-1)
-                final_preds[head] = acc
+        # 对RGB预测进行加权平均
+        ret = 0
+        for pred, area in zip(rgb_preds, areas):
+            ret = ret + pred * (area / tot_area).unsqueeze(-1)
 
-        return final_preds
+        # 如果是训练模式，则计算并存储SDF预测
+        if self.sdf_head and self.training:
+            sdf_ret = 0
+            for pred, area in zip(sdf_preds, areas):
+                sdf_ret = sdf_ret + pred * (area / tot_area).unsqueeze(-1)
+            self.sdf_pred = sdf_ret
+
+        return ret
 
             
     def forward(self, inp, coord, cell, degrade=None):

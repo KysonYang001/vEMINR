@@ -118,12 +118,10 @@ class Trainer():
             lr, gt, cell, coord, scale, _ = self.data(batch1, self.pool_val)
             with torch.no_grad():
                 if eval_bsize is None:
-                    preds = self.model(lr, coord, cell)
-                    pred = preds['rgb']
+                    pred = self.model(lr, coord, cell, state='test')
                 else:
                     inp = (lr - self.inp_sub) / self.inp_div
-                    preds = test.batched_predict(self.model, inp, coord, cell, eval_bsize)
-                    pred = preds['rgb']  # 提取RGB预测
+                    pred = test.batched_predict(self.model, inp, coord, cell, bsize=eval_bsize)
 
             res = metric_fn(pred, gt)
             val_res.add(res.item(), self.bs)
@@ -146,25 +144,25 @@ class Trainer():
             lr, gt, cell, coord, scale, gt_sdf = self.data(batch1, self.pool)
 
             self.optimizer.zero_grad()
-
-            preds = self.model(lr, coord, cell, state='train')
-            pred_rgb = preds['rgb']
+            pred_rgb = self.model(lr, coord, cell, state='train')
 
             # 计算SR损失
             loss_sr = self.criterion(pred_rgb, gt)
             total_loss = loss_sr
-            losses.add(loss_sr.item())
 
-            # 如果启用了SDF，则计算并添加几何损失
-            if self.lambda_geom > 0 and 'sdf' in preds and gt_sdf is not None:
-                pred_sdf = preds['sdf']
+            # 如果启用了SDF，则获取SDF预测并添加几何损失
+            # 注意：DDP模式下需要访问 .module
+            model_inst = self.model.module if self.args.DDP else self.model
+            if self.lambda_geom > 0 and gt_sdf is not None and hasattr(model_inst.SR, 'sdf_pred'):
+                pred_sdf = model_inst.SR.sdf_pred
                 # 将SDF预测和真值反归一化到原始尺度
                 pred_sdf_orig = pred_sdf * self.sdf_div + self.sdf_sub
                 gt_sdf_orig = gt_sdf * self.sdf_div + self.sdf_sub
                 loss_geom = self.geom_criterion(pred_sdf_orig, gt_sdf_orig)
                 total_loss = total_loss + self.lambda_geom * loss_geom
 
-            loss = total_loss  # 用于反向传播
+            losses.add(total_loss.item()) # for logging
+            loss = total_loss
             loss.backward()
             self.optimizer.step()
 

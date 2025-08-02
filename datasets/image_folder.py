@@ -3,6 +3,7 @@ import json
 from PIL import Image
 import pdb
 import pickle
+import os
 from skimage import io
 import numpy as np
 import torch
@@ -65,7 +66,13 @@ class ImageVolume(Dataset):
 
         if sdf_path is not None:
             print(f"正在加载SDF数据从: {sdf_path}")
-            self.sdf = io.imread(sdf_path)
+            _, ext = os.path.splitext(sdf_path)
+            if ext.lower() == '.npy':
+                self.sdf = np.load(sdf_path)
+            elif ext.lower() in ['.tif', '.tiff']:
+                self.sdf = io.imread(sdf_path)
+            else:
+                raise ValueError(f"不支持的SDF文件格式: {ext}。请使用.npy或.tif。")
             # 关键检查：确保图像和SDF体数据的形状匹配
             assert self.image.shape == self.sdf.shape, \
                 f"图像形状 {self.image.shape} 和 SDF形状 {self.sdf.shape} 必须一致。"
