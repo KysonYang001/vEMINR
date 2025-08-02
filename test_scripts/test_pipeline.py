@@ -161,8 +161,6 @@ def run_pipeline_test():
     loss_geom_val = 0.0
     
     if pred_sdf is not None and gt_sdf is not None:
-        # 修复：直接在归一化空间计算SDF损失，避免反归一化的数值问题
-        # 这样可以避免大数值导致的梯度爆炸问题
         loss_geom = geom_criterion(pred_sdf, gt_sdf)
         total_loss = total_loss + config['lambda_geom'] * loss_geom
         loss_geom_val = loss_geom.item()
