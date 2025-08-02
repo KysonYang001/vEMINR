@@ -41,8 +41,8 @@ data_norm: # set data range form [0,1] to [-1, 1].
   gt: {sub: [0.5], div: [0.5]}
 
 sdf_norm: # set sdf range form [0,1] to [-1, 1].
-  sub: [0.0]  # should replace the mean and std of sdf.
-  div: [1.0] 
+  sub: [0.5]  # should replace the mean and std of sdf.
+  div: [0.5] 
 
 optimizer: # optimizer setting
   name: adam
