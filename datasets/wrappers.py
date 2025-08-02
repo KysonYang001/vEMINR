@@ -143,31 +143,28 @@ class ScaleDownsampled_gaussian(Dataset):
         return len(self.dataset)
 
     def __getitem__(self, idx):
-
         s = self.scale
         item = self.dataset[idx]
         img = item['img']
-        sdf = item.get('sdf', None)
+        
+        has_sdf = 'sdf' in item
+        sdf = item.get('sdf')
 
         if self.inp_size is None:
             h_lr = math.floor(img.shape[-2] / s + 1e-9)
             w_lr = math.floor(img.shape[-1] / s + 1e-9)
-            crop_img = img[:, :round(h_lr * s), :round(w_lr * s)]  # assume round int
-            if sdf is not None:
+            crop_img = img[:, :round(h_lr * s), :round(w_lr * s)]
+            if has_sdf:
                 crop_sdf = sdf[:, :round(h_lr * s), :round(w_lr * s)]
-                item['sdf'] = crop_sdf
         else:
             w_lr = self.inp_size
             w_hr = round(w_lr * s)
             x0 = random.randint(0, img.shape[-2] - w_hr)
             y0 = random.randint(0, img.shape[-1] - w_hr)
 
-            # clean
             crop_img = img[:, x0: x0 + w_hr, y0: y0 + w_hr]
-            
-            if sdf is not None:
-                crop_sdf = sdf[x0: x0 + w_hr, y0: y0 + w_hr]
-                item['sdf'] = crop_sdf
+            if has_sdf:
+                crop_sdf = sdf[:, x0: x0 + w_hr, y0: y0 + w_hr]
 
         if self.augment:
             hflip = random.random() < 0.5
@@ -184,17 +181,12 @@ class ScaleDownsampled_gaussian(Dataset):
                 return x
 
             crop_img = augment(crop_img)
-            if sdf is not None:
-                crop_sdf = augment(crop_sdf) # type: ignore
-                item['sdf'] = crop_sdf
+            if has_sdf:
+                crop_sdf = augment(crop_sdf)
 
+        # 步骤 1: 生成所有完整的、未经采样的数据
         hr_coord, hr_rgb = to_pixel_samples(crop_img.contiguous())
-        if self.sample_q is not None:
-            sample_lst = np.random.choice(
-                len(hr_coord), self.sample_q, replace=False)
-            hr_coord = hr_coord[sample_lst]
-            hr_rgb = hr_rgb[sample_lst]
-
+        
         item_dict = {
             'gt': hr_rgb,
             'coord': hr_coord,
@@ -202,17 +194,24 @@ class ScaleDownsampled_gaussian(Dataset):
             'inp': crop_img
         }
 
-        if sdf is not None:
-            # Sample SDF values at the same coordinates
-            _, hr_sdf = to_pixel_samples(crop_sdf.contiguous()) # type : ignore
-            if self.sample_q is not None:
-                hr_sdf = hr_sdf[sample_lst] # type: ignore
-                item_dict['gt_sdf'] = hr_sdf
+        if has_sdf:
+            # 我们只需要SDF的值，坐标是共享的
+            _, hr_sdf = to_pixel_samples(crop_sdf.contiguous())
+            item_dict['gt_sdf'] = hr_sdf
 
-        cell = torch.ones_like(hr_coord)
+        # 步骤 2: 在最后进行一次性采样
+        if self.sample_q is not None:
+            sample_lst = np.random.choice(
+                len(item_dict['coord']), self.sample_q, replace=False)
+            
+            # 对所有需要采样的键进行操作
+            for key_to_sample in ['coord', 'gt', 'gt_sdf']:
+                if key_to_sample in item_dict:
+                    item_dict[key_to_sample] = item_dict[key_to_sample][sample_lst]
+
+        cell = torch.ones_like(item_dict['coord'])
         cell[:, 0] *= 2 / crop_img.shape[-2]
         cell[:, 1] *= 2 / crop_img.shape[-1]
-
         item_dict['cell'] = cell
 
-        return item_dict 
+        return item_dict
