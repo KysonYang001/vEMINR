@@ -77,7 +77,7 @@ class Trainer():
         self.gt_sub = torch.FloatTensor(t['sub']).view(1, 1, -1).to(self.device)
         self.gt_div = torch.FloatTensor(t['div']).view(1, 1, -1).to(self.device)
 
-        # 为SDF添加归一化参数
+        # 为SDF添加权重参数
         self.lambda_geom = config.get('lambda_geom', 0.0)  # 如果未定义则默认为0
         if self.lambda_geom > 0 and config.get('sdf_norm'):
             t = config['sdf_norm']
