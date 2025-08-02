@@ -28,7 +28,7 @@ val_dataset1:
     name: image-volume
     args:
       root_path: /your/path/to/val-data.tif
-      sdf_path: /your/path/to/val_sdf_data.tif
+      sdf_path: /your/path/to/val_sdf_data.npy
   wrapper:
     name: sr-gaussian
     args:
