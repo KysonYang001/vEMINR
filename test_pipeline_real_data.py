@@ -13,50 +13,50 @@ import utils
 from datasets.queue import dequeue_and_enqueue
 from datasets.degrade import SRMDPreprocessing
 
-# --- 1. 定义测试参数和文件路径 (SDF文件改为.npy) ---
-DUMMY_CONFIG_PATH = 'configs/test_pipeline.yaml'
-DUMMY_IMG_PATH_TRAIN = 'dummy_train_img.tif'
-DUMMY_SDF_PATH_TRAIN = 'dummy_train_sdf.npy' # <--- 修改
-DUMMY_IMG_PATH_VAL = 'dummy_val_img.tif'
-DUMMY_SDF_PATH_VAL = 'dummy_val_sdf.npy'   # <--- 修改
+# --- 1. 定义测试参数和真实数据路径 ---
+REAL_CONFIG_PATH = 'configs/test_pipeline_real.yaml'
+LIVER_DATA_PATH = 'liver_data'
+SDF_DATA_PATH = 'sdf_grid_fixed.npy'  # 使用修复后的SDF文件
 CONFIG_DIR = 'configs'
 
 TEST_PARAMS = {
-    'img_shape': (16, 64, 64),
     'batch_size': 2,
-    'inp_size': 24, 
-    'sample_q': 1024,
-    'scale': 2,
+    'inp_size': 48, 
+    'sample_q': 2304,
+    'scale': 8,
     'lambda_geom': 0.1
 }
 
-# --- 2. 创建虚拟文件 ---
-def create_dummy_files():
-    """生成虚拟的.tif数据文件和.yaml配置文件"""
-    print("--- 步骤1: 创建虚拟数据和配置文件 ---")
+# --- 2. 创建基于真实数据的配置文件 ---
+def create_real_data_config():
+    """生成基于真实liver数据的配置文件"""
+    print("--- 步骤1: 创建基于真实数据的配置文件 ---")
     
     if not os.path.exists(CONFIG_DIR):
         os.makedirs(CONFIG_DIR)
 
-    dummy_image_train = np.random.randint(0, 256, size=TEST_PARAMS['img_shape']).astype(np.uint8)
-    io.imsave(DUMMY_IMG_PATH_TRAIN, dummy_image_train)
+    # 检查数据文件是否存在
+    if not os.path.exists(LIVER_DATA_PATH):
+        raise FileNotFoundError(f"Liver数据目录不存在: {LIVER_DATA_PATH}")
     
-    # 使用 np.save 创建 .npy 文件
-    print(f"创建训练SDF: {DUMMY_SDF_PATH_TRAIN}")
-    dummy_sdf_train = np.random.randn(*TEST_PARAMS['img_shape']).astype(np.float32)
-    np.save(DUMMY_SDF_PATH_TRAIN, dummy_sdf_train) # <--- 修改
+    if not os.path.exists(SDF_DATA_PATH):
+        raise FileNotFoundError(f"SDF数据文件不存在: {SDF_DATA_PATH}")
+    
+    # 计算SDF统计信息
+    print(f"正在加载SDF数据: {SDF_DATA_PATH}")
+    sdf_data = np.load(SDF_DATA_PATH).astype(np.float64)
+    sdf_mean = np.mean(sdf_data)
+    sdf_std = np.std(sdf_data)
+    
+    print(f"SDF数据形状: {sdf_data.shape}")
+    print(f"SDF均值: {sdf_mean}")
+    print(f"SDF标准差: {sdf_std}")
 
-    dummy_image_val = np.random.randint(0, 256, size=TEST_PARAMS['img_shape']).astype(np.uint8)
-    io.imsave(DUMMY_IMG_PATH_VAL, dummy_image_val)
-    
-    print(f"创建验证SDF: {DUMMY_SDF_PATH_VAL}")
-    dummy_sdf_val = np.random.randn(*TEST_PARAMS['img_shape']).astype(np.float32)
-    np.save(DUMMY_SDF_PATH_VAL, dummy_sdf_val) # <--- 修改
-    
-    sdf_mean = np.mean(dummy_sdf_train)
-    sdf_std = np.std(dummy_sdf_train)
+    # 获取绝对路径
+    liver_data_abs_path = os.path.abspath(LIVER_DATA_PATH)
+    sdf_data_abs_path = os.path.abspath(SDF_DATA_PATH)
 
-    # 在配置中指向 .npy 文件
+    # 创建配置文件内容
     config_content = f"""
 seed: 42
 lambda_geom: {TEST_PARAMS['lambda_geom']}
@@ -67,11 +67,11 @@ inp_size: {TEST_PARAMS['inp_size']}
 queue_size: {TEST_PARAMS['batch_size'] * 2}
 
 train_dataset1:
-  dataset: {{name: image-volume, args: {{root_path: {DUMMY_IMG_PATH_TRAIN}, sdf_path: {DUMMY_SDF_PATH_TRAIN}, repeat: 1}}}}
+  dataset: {{name: image-volume, args: {{root_path: {liver_data_abs_path}, sdf_path: {sdf_data_abs_path}, repeat: 1}}}}
   wrapper: {{name: sr-gaussian, args: {{inp_size: {TEST_PARAMS['inp_size']}, sample_q: {TEST_PARAMS['sample_q']}, augment: false, scale: {TEST_PARAMS['scale']}}}}}
 
 val_dataset1:
-  dataset: {{name: image-volume, args: {{root_path: {DUMMY_IMG_PATH_VAL}, sdf_path: {DUMMY_SDF_PATH_VAL}}}}}
+  dataset: {{name: image-volume, args: {{root_path: {liver_data_abs_path}, sdf_path: {sdf_data_abs_path}}}}}
   wrapper: {{name: sr-gaussian, args: {{inp_size: {TEST_PARAMS['inp_size']}, sample_q: {TEST_PARAMS['sample_q']}, scale: {TEST_PARAMS['scale']}}}}}
 
 data_norm: {{inp: {{sub: [0.5], div: [0.5]}}, gt: {{sub: [0.5], div: [0.5]}}}}
@@ -94,18 +94,17 @@ model:
   path: null
 """
     
-    with open(DUMMY_CONFIG_PATH, 'w') as f:
+    with open(REAL_CONFIG_PATH, 'w') as f:
         f.write(config_content)
-    print(f"配置文件已创建: {DUMMY_CONFIG_PATH}")
+    print(f"配置文件已创建: {REAL_CONFIG_PATH}")
     print("-" * 20)
 
 
-# --- 后续的主测试逻辑和清理逻辑保持不变 ---
-def run_pipeline_test():
-    """加载虚拟配置和数据，并运行一个训练步骤"""
-    print("\n--- 步骤2: 开始流水线测试 ---")
+def run_real_data_pipeline_test():
+    """使用真实数据运行流水线测试"""
+    print("\n--- 步骤2: 开始真实数据流水线测试 ---")
     
-    with open(DUMMY_CONFIG_PATH, 'r') as f:
+    with open(REAL_CONFIG_PATH, 'r') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -124,7 +123,7 @@ def run_pipeline_test():
     pool = dequeue_and_enqueue(config, 'SR').to(device)
     
     batch = next(iter(train_loader))
-    print("成功从加载器获取一个批次的数据。")
+    print("成功从加载器获取一个批次的真实数据。")
     for k, v in batch.items():
         if v is not None:
             batch[k] = v.to(device)
@@ -177,30 +176,50 @@ def run_pipeline_test():
     print("优化器步进完成。")
     
     print("-" * 20)
-    print("\n✅ 流水线测试成功！所有步骤均无错误执行。")
+    print("\n✅ 真实数据流水线测试成功！所有步骤均无错误执行。")
     print("-" * 20)
 
-def cleanup_dummy_files():
-    """删除所有生成的虚拟文件"""
-    print("\n--- 步骤3: 清理临时文件 ---")
-    files_to_remove = [
-        DUMMY_CONFIG_PATH, DUMMY_IMG_PATH_TRAIN, DUMMY_SDF_PATH_TRAIN,
-        DUMMY_IMG_PATH_VAL, DUMMY_SDF_PATH_VAL
-    ]
-    for f in files_to_remove:
-        if os.path.exists(f):
-            try:
-                os.remove(f)
-                print(f"已删除: {f}")
-            except OSError as e:
-                print(f"删除文件 {f} 时出错: {e}")
+def cleanup_config_file():
+    """删除生成的配置文件"""
+    print("\n--- 步骤3: 清理临时配置文件 ---")
+    if os.path.exists(REAL_CONFIG_PATH):
+        try:
+            os.remove(REAL_CONFIG_PATH)
+            print(f"已删除: {REAL_CONFIG_PATH}")
+        except OSError as e:
+            print(f"删除文件 {REAL_CONFIG_PATH} 时出错: {e}")
+
+def validate_data_consistency():
+    """验证数据一致性"""
+    print("\n--- 数据一致性验证 ---")
+    
+    # 检查liver_data中的图片数量
+    liver_files = [f for f in os.listdir(LIVER_DATA_PATH) if f.endswith('.png')]
+    print(f"Liver数据文件数量: {len(liver_files)}")
+    
+    # 检查SDF数据
+    sdf_data = np.load(SDF_DATA_PATH)
+    print(f"SDF数据形状: {sdf_data.shape}")
+    print(f"SDF数据类型: {sdf_data.dtype}")
+    print(f"SDF值范围: [{sdf_data.min():.4f}, {sdf_data.max():.4f}]")
+    
+    # 检查一张示例图片
+    if liver_files:
+        sample_img_path = os.path.join(LIVER_DATA_PATH, liver_files[0])
+        sample_img = io.imread(sample_img_path)
+        print(f"示例图片形状: {sample_img.shape}")
+        print(f"示例图片数据类型: {sample_img.dtype}")
+        print(f"示例图片值范围: [{sample_img.min()}, {sample_img.max()}]")
+    
+    print("-" * 20)
 
 if __name__ == '__main__':
     try:
-        create_dummy_files()
-        run_pipeline_test()
+        validate_data_consistency()
+        create_real_data_config()
+        run_real_data_pipeline_test()
     except Exception as e:
         print(f"\n❌ 测试失败，出现错误: {e}")
         traceback.print_exc()
     finally:
-        cleanup_dummy_files()
+        cleanup_config_file()
