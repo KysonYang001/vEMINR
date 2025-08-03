@@ -6,11 +6,14 @@ num_pt: 7
 inp_size: 48
 queue_size: 320
 
+lambda_geom: 0.1 
+
 train_dataset1: # data set setting.
   dataset: # the module responsible for loading image.
     name: image-volume
     args:
       root_path: /your/path/to/data.tif # volume data path.
+      sdf_path: /your/path/to/sdf.npy # sdf data path.
       repeat: 8 # images in dataset will be loaded 10 times.
   wrapper: # the module responsible for preprocessing image.
     name: sr-gaussian
@@ -25,6 +28,7 @@ val_dataset1:
     name: image-volume
     args:
       root_path: /your/path/to/val-data.tif
+      sdf_path: /your/path/to/val_sdf_data.npy
   wrapper:
     name: sr-gaussian
     args:
@@ -35,6 +39,10 @@ val_dataset1:
 data_norm: # set data range form [0,1] to [-1, 1].
   inp: {sub: [0.5], div: [0.5]}
   gt: {sub: [0.5], div: [0.5]}
+
+sdf_norm: # set sdf range form [0,1] to [-1, 1].
+  sub: [0.5]  # should replace the mean and std of sdf.
+  div: [0.5] 
 
 optimizer: # optimizer setting
   name: adam
@@ -59,6 +67,7 @@ model: # model setting
         name: rdn
         args:
           no_upsampling: true
+      sdf_head: true # new add !
       imnet_spec: # implicit degradation predictor.
         name: mlp
         args:

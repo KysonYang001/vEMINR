@@ -20,7 +20,6 @@ class Model(nn.Module):
         self.encoder = models.make(spec['degrade'], load_sd=spec['path'], freeze=True, key='degrade').to(self.device)
         self.SR = models.make(spec['SR']).to(self.device)
 
-
         if config.get('data_norm') is None:
             config['data_norm'] = {
                 'inp': {'sub': [0], 'div': [1]},
@@ -34,13 +33,17 @@ class Model(nn.Module):
         t = data_norm['gt']
         self.gt_sub = torch.FloatTensor(t['sub']).view(1, 1, -1).to(self.device)
         self.gt_div = torch.FloatTensor(t['div']).view(1, 1, -1).to(self.device)
+        if config.get('sdf_norm'):
+            t = config['sdf_norm']
+            self.sdf_sub = torch.FloatTensor(t['sub']).view(1, 1, -1).to(self.device)
+            self.sdf_div = torch.FloatTensor(t['div']).view(1, 1, -1).to(self.device)
 
     def forward(self, lr, coord=None, cell=None, scale=1, kernel=None, state='test'):
         with torch.no_grad():
             feature = self.encoder(lr)  # fix
 
         inp = (lr - self.inp_sub) / self.inp_div
-        pred_rgb = self.SR(inp, coord, cell, feature)
+        pred_rgb = self.SR(inp, coord, cell, feature) # self.SR(LIIF)现在只返回RGB
         pred_rgb = pred_rgb * self.gt_div + self.gt_sub
         pred_rgb.clamp_(0, 1)
 
