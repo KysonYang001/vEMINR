@@ -1,0 +1,31 @@
+batch_size: 2
+
+test_dataset:
+  dataset:
+    name: image-test
+    args:
+      root_path: /your/path/to/data.tif
+      direction: xz
+      scale: 8
+
+model:
+  name: models
+  args: {}
+  SR:
+    name: liif
+    args:
+      encoder_spec:
+        name: rdn
+        args:
+          no_upsampling: true
+      imnet_spec:
+        name: mlp
+        args:
+          out_dim: 1
+          hidden_list: [256, 256, 256, 256]
+  degrade:
+    name: simsiam
+    args:
+      dim: 256
+  path: checkpoints/degrade/EPFL/epoch-best.pth
+  

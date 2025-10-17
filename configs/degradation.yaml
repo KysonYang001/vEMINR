@@ -1,0 +1,43 @@
+seed: 1
+inp_size: 48
+batch_size: 2 # Make sure this is > 1
+epoch_max:  4
+epoch_save: 2
+queue_size: 2048
+
+blur:
+  # Degradation specifications
+  noise: 0.0
+
+fixed_downsample_scale: true
+downsample_scale: 4
+
+train_dataset1:
+  dataset:
+    name: image-volume
+    args:
+      root_path: data/fibsem_downsample.tif
+      repeat: 1
+  wrapper:
+    name: sr-degrade
+    args:
+      inp_size: 96
+      augment: true
+
+
+optimizer:
+  name: adam
+  args:
+   lr: 0.03
+   weight_decay: 0 
+
+degrade:
+  name: simsiam
+  args:
+    dim: 256
+    pred_dim: 512
+
+
+# norm from [0,1] to [-1,1]
+#data_norm:
+#  inp: {sub: [0.5], div: [0.5]}
