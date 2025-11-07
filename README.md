@@ -53,7 +53,7 @@ Training our model.
   ```bash
  ./train.sh
   ```
-<span style="color:red">For more details, please refer to the [Training Notebook](https://github.com/KysonYang001/vEMINR/blob/main/example/demo_training.ipynb).</span>
+For more details, please refer to the [Training Notebook](https://github.com/KysonYang001/vEMINR/blob/main/example/demo_training.ipynb).  
 The training notebook includes the complete pipeline of model setup, data preparation, and the training procedure, which consists of two stages: training a degradation extractor to learn image degradation characteristics, and jointly training a feature extraction network and an INR-based upsampling network for isotropic reconstruction.
 
 ### S3.2 Testing
