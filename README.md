@@ -70,7 +70,7 @@ Testing our model.
  ./test.sh
   ```
 
-For more details, please refer to the [Inference Notebook]([https://github.com/KysonYang001/vEMINR/blob/main/example/demo_inference.ipynb]).  
+For more details, please refer to the [Inference Notebook](https://github.com/KysonYang001/vEMINR/blob/main/example/demo_inference.ipynb).  
 The inference notebook demonstrates slice-wise isotropic reconstruction with a 2D architecture: it loads pretrained weights, takes anisotropic axial slices (XZ/YZ) as inputs, performs super-resolution on each slice under the INR-based upsampling module, and then reassembles the predictions into a 3D isotropic volume. It further supports orthogonal-view visualization for before/after comparison.
 
 ### S3.3 Model Zoo
