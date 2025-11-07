@@ -53,6 +53,7 @@ Training our model.
   ```bash
  ./train.sh
   ```
+
 For more details, please refer to the [Training Notebook](https://github.com/KysonYang001/vEMINR/blob/main/example/demo_training.ipynb).  
 The training notebook includes the complete pipeline of model setup, data preparation, and the training procedure, which consists of two stages: training a degradation extractor to learn image degradation characteristics, and jointly training a feature extraction network and an INR-based upsampling network for isotropic reconstruction.
 
@@ -68,6 +69,9 @@ Testing our model.
   ```bash
  ./test.sh
   ```
+
+For more details, please refer to the [Inference Notebook]([https://github.com/KysonYang001/vEMINR/blob/main/example/demo_inference.ipynb]).  
+The inference notebook demonstrates slice-wise isotropic reconstruction with a 2D architecture: it loads pretrained weights, takes anisotropic axial slices (XZ/YZ) as inputs, performs super-resolution on each slice under the INR-based upsampling module, and then reassembles the predictions into a 3D isotropic volume. It further supports orthogonal-view visualization for before/after comparison.
 
 ### S3.3 Model Zoo
 
