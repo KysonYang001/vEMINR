@@ -1,5 +1,7 @@
 # vEMINR: Faster Isotropic Reconstruction for Volume Electron Microscopy with Implicit Neural Representation
 
+**Paper:** [Advanced Science (2026)](https://doi.org/10.1002/advs.202511922)
+
 ## Contents
 - [S1 Overview](#s1-overview)
 - [S2 Installation](#s2-installation)
@@ -8,7 +10,7 @@
   - [S3.2 Testing](#s32-testing)
   - [S3.3 Model Zoo](#s33-model-zoo)
 - [S4 Availability of data](#s4-availability-of-data)
-
+- [S5 Citation](#s5-citation)
 ## S1 Overview
 Here, we introduce vEMINR, a faster isotropic reconstruction method based on implicit neural representations (INR). 
 The method improves the reconstruction quality of vEM images by learning the true degradation patterns of low-resolution images, 
@@ -85,6 +87,21 @@ We provide the trained models on the EPFL dataset at BaiduYun and GoogleDrive.
 ## S4 Availability of data
 The EPFLdataset was downloaded from the EPFL website https://www.epfl.ch/labs/cvlab/data/data-em/.
 <br>
+
+## S5 Citation
+If you find our code or paper useful for your research, please cite our work:
+
+```bibtex
+@article{yang2026veminr,
+  title={vEMINR: Ultra-Fast Isotropic Reconstruction for Volume Electron Microscopy With Implicit Neural Representation},
+  author={Yang, Jibin and Huo, Jie and Liu, Muyu and Feng, Chenjie and Zhang, Yan and Pan, Gang and Meng, Wenjia and Han, Renmin},
+  journal={Advanced Science},
+  pages={e11922},
+  year={2026},
+  publisher={Wiley Online Library}
+}
+```
+
 
 
 
